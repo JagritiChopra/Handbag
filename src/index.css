@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: #F5EFE6;
+  --color-text-heading: #1A1A1A;
+  --color-text-body: #5A5A5A;
+  --color-accent-gold: #C6A96B;
+
+  --font-serif: "Playfair Display", serif;
+  --font-sans: "Inter", sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-body);
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+    color: var(--color-text-heading);
+  }
+}
+
+/* Base custom classes to match the luxury theme */
+@layer utilities {
+  .text-heading {
+    color: var(--color-text-heading);
+  }
+  .text-body {
+    color: var(--color-text-body);
+  }
+  .bg-base {
+    background-color: var(--color-bg-base);
+  }
+  .text-accent {
+    color: var(--color-accent-gold);
+  }
+  .bg-accent {
+    background-color: var(--color-accent-gold);
+  }
+}
