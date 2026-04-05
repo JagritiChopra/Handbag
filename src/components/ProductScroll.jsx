@@ -297,40 +297,40 @@ export default function ProductScroll() {
           
           <motion.div 
             style={{ opacity: opacity0, y: y0 }}
-            className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full text-center"
+            className="absolute top-[15%] md:top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full text-center px-4"
           >
             <h2 className="font-serif text-4xl md:text-5xl text-heading drop-shadow-md">Crafted for Elegance</h2>
           </motion.div>
           
           <motion.div 
             style={{ opacity: opacity25, y: y25 }}
-            className="absolute top-1/3 left-[10%] md:left-[15%] w-full max-w-xs text-left"
+            className="absolute top-[15%] md:top-1/3 left-[5%] md:left-[15%] w-[85%] md:w-full md:max-w-xs text-left"
           >
-            <h2 className="font-serif text-3xl md:text-5xl text-heading leading-tight mb-4 drop-shadow-md">Italian <br/><span className="text-accent italic">Leather</span></h2>
-            <p className="font-sans text-sm text-heading font-medium tracking-wide leading-relaxed drop-shadow-sm">Sourced from exclusively certified European tanneries, offering a butter-soft finish that improves with time.</p>
+            <h2 className="font-serif text-3xl md:text-5xl text-heading leading-tight mb-2 md:mb-4 drop-shadow-md">Italian <br/><span className="text-accent italic">Leather</span></h2>
+            <p className="font-sans text-sm text-heading font-medium tracking-wide leading-relaxed drop-shadow-sm max-w-[240px] md:max-w-none">Sourced from exclusively certified European tanneries, offering a butter-soft finish that improves with time.</p>
           </motion.div>
 
           <motion.div 
             style={{ opacity: opacity50, y: y50 }}
-            className="absolute top-[40%] right-[10%] md:right-[15%] w-full max-w-xs text-right"
+            className="absolute top-[65%] md:top-[40%] right-[5%] md:right-[15%] w-[85%] md:w-full md:max-w-xs text-right flex flex-col items-end"
           >
-            <h2 className="font-serif text-3xl md:text-5xl text-heading leading-tight mb-4 drop-shadow-md">Precision <br/><span className="text-accent italic">Details</span></h2>
-            <p className="font-sans text-sm text-heading font-medium tracking-wide leading-relaxed drop-shadow-sm">Each clasp is hand-polished and coated in 18-karat gold, a structural masterclass of form meeting function.</p>
+            <h2 className="font-serif text-3xl md:text-5xl text-heading leading-tight mb-2 md:mb-4 drop-shadow-md">Precision <br/><span className="text-accent italic">Details</span></h2>
+            <p className="font-sans text-sm text-heading font-medium tracking-wide leading-relaxed drop-shadow-sm max-w-[240px] md:max-w-none">Each clasp is hand-polished and coated in 18-karat gold, a structural masterclass of form meeting function.</p>
           </motion.div>
 
           <motion.div 
             style={{ opacity: opacity75, y: y75 }}
-            className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-full text-center"
+            className="absolute bottom-[15%] md:bottom-1/4 left-1/2 -translate-x-1/2 w-full px-4 text-center"
           >
             <h2 className="font-serif text-4xl md:text-5xl text-heading drop-shadow-md">Timeless Design</h2>
           </motion.div>
 
           <motion.div 
             style={{ opacity: opacity95, y: y95 }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto px-4 w-full"
           >
-            <h2 className="font-serif text-5xl md:text-6xl text-heading mb-10 drop-shadow-lg text-center">Make It Yours</h2>
-            <button className="group relative overflow-hidden border border-heading text-heading px-12 py-4 text-xs font-semibold tracking-[0.2em] uppercase hover:bg-heading hover:text-[#F5EFE6] transition-colors duration-500 bg-base/50 backdrop-blur-sm">
+            <h2 className="font-serif text-4xl md:text-6xl text-heading mb-8 md:mb-10 drop-shadow-lg text-center">Make It Yours</h2>
+            <button className="group relative overflow-hidden border border-heading text-heading px-8 md:px-12 py-3 md:py-4 text-xs font-semibold tracking-[0.2em] uppercase hover:bg-heading hover:text-[#F5EFE6] transition-colors duration-500 bg-base/50 backdrop-blur-sm">
               <span className="relative z-10 flex items-center gap-4">
                 Explore Collection
               </span>

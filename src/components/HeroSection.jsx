@@ -8,27 +8,49 @@ export default function HeroSection() {
     offset: ["start start", "end start"]
   });
 
-  const [layout, setLayout] = React.useState({ vh: 800, dx: 0, vw: 1200 });
+  const [layout, setLayout] = React.useState({ vh: 800, dx: 0, bagYTarget1: 960, bagYTarget2: 1200, vw: 1200 });
+  const bagContainerRef = useRef(null);
 
   React.useEffect(() => {
     const handleResize = () => {
+      if (!containerRef.current) return;
+      
       const vh = window.innerHeight;
       const vw = window.innerWidth;
+      
       let dx = 0;
       if (vw >= 768) {
         const gridWidth = Math.min(vw - 48, 1280); // px-6 is 48px total padding
         const gap = 48; // gap-12 is 48px
         dx = -((gridWidth + gap) / 4);
       }
-      setLayout({ vh, dx, vw });
+
+      // Calculate vertical compensation so the bag always lands at exact screen center
+      let centerOnContainer = vh / 2;
+      if (bagContainerRef.current) {
+        const bagRect = bagContainerRef.current.getBoundingClientRect();
+        const heroRect = containerRef.current.getBoundingClientRect();
+        centerOnContainer = (bagRect.top - heroRect.top) + (bagRect.height / 2);
+      }
+      
+      // At scroll 1.2vh, hero container is scrolled up by 1.2vh. 
+      // We want bag screen center to be exactly at 0.5vh.
+      const bagYTarget1 = (1.7 * vh) - centerOnContainer;
+      
+      // Continue the same slope for the remaining 0.3vh
+      const bagYTarget2 = bagYTarget1 * (1.5 / 1.2);
+      
+      setLayout({ vh, dx, bagYTarget1, bagYTarget2, vw });
     };
-    handleResize();
+    
+    // Slight delay to ensure DOM is fully laid out before math
+    setTimeout(handleResize, 50);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // The bag stays vertically fixed relative to viewport well into ProductScroll
-  const bagY = useTransform(scrollY, [0, layout.vh * 1.5], [0, layout.vh * 1.5]);
+  // The bag perfectly aligns down to center viewport
+  const bagY = useTransform(scrollY, [0, layout.vh * 1.2, layout.vh * 1.5], [0, layout.bagYTarget1, layout.bagYTarget2]);
   
   // The bag moves from right column to center of screen horizontally by 1.2vh and stays there
   const rawBagX = useTransform(scrollY, [0, layout.vh * 1.2, layout.vh * 1.5], [0, layout.dx, layout.dx]);
@@ -58,14 +80,14 @@ export default function HeroSection() {
         
         {/* Left: Text Content */}
         <motion.div 
-          className="flex flex-col justify-center max-w-lg"
+          className="flex flex-col justify-center max-w-lg mt-20 md:mt-0"
           style={{ opacity: textOpacity, y: textY }}
         >
           <motion.h1 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-            className="font-serif text-6xl md:text-7xl lg:text-8xl leading-tight text-heading"
+            className="font-serif text-5xl sm:text-6xl md:text-7xl lg:text-8xl leading-tight text-heading"
           >
             The Aurelia<br />
             <span className="font-light italic text-accent">Signature</span>
@@ -96,7 +118,7 @@ export default function HeroSection() {
         </motion.div>
 
         {/* Right: Handbag Image */}
-        <div className="relative h-full flex justify-center items-center pointer-events-none z-50">
+        <div ref={bagContainerRef} className="relative h-full flex justify-center items-center pointer-events-none z-50">
           <motion.div
             style={{ 
               y: bagY,

@@ -15,7 +15,7 @@ export default function LivingNarrative() {
   ];
 
   return (
-    <section className="relative w-full h-[100svh] min-h-[600px] bg-[#F7F7F4] flex flex-col items-center justify-center overflow-hidden border-t border-heading/10">
+    <section className="relative w-full min-h-[100svh] py-20 lg:py-0 bg-[#F7F7F4] flex flex-col items-center justify-center overflow-hidden border-t border-heading/10">
       {/* Background Grid Pattern */}
       <div className="absolute inset-0 z-0 pointer-events-none" 
            style={{
