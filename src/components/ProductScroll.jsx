@@ -15,7 +15,7 @@ export default function ProductScroll() {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   
-  const [images, setImages] = useState([]);
+  const imagesRef = useRef(new Array(FRAME_COUNT));
   const [loaded, setLoaded] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
@@ -24,64 +24,36 @@ export default function ProductScroll() {
     offset: ["start start", "end end"]
   });
 
-  // Preload images
-  useEffect(() => {
-    let isCancelled = false;
-    let loadedCount = 0;
-    const imgArray = new Array(FRAME_COUNT);
-
-    const loadImages = async () => {
-      const promises = [];
-      for (let i = 0; i < FRAME_COUNT; i++) {
-        promises.push(
-          new Promise((resolve) => {
-            const img = new Image();
-            img.src = currentFrame(i);
-            
-            img.onload = async () => {
-              // Force decode image to avoid decode jank on scroll
-              if (img.decode) {
-                try {
-                  await img.decode();
-                } catch (e) {}
-              }
-              if (isCancelled) return resolve();
-              imgArray[i] = img;
-              loadedCount++;
-              setLoadingProgress(Math.floor((loadedCount / FRAME_COUNT) * 100));
-              resolve();
-            };
-            img.onerror = () => {
-              if (isCancelled) return resolve();
-              loadedCount++; 
-              resolve();
-            };
-          })
-        );
-      }
-      
-      await Promise.all(promises);
-      
-      if (!isCancelled) {
-        setImages(imgArray);
-        setLoaded(true);
-      }
-    };
-
-    loadImages();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
-
   // Draw canvas frame
   const drawFrame = (frameIndex) => {
-    if (!canvasRef.current || !images[frameIndex]) return;
+    if (!canvasRef.current) return;
     
+    const images = imagesRef.current;
+    
+    // Find closest loaded frame if current one is not yet loaded
+    let targetFrame = frameIndex;
+    if (!images[targetFrame]) {
+      let offset = 1;
+      let found = false;
+      while (offset < FRAME_COUNT) {
+        if (targetFrame - offset >= 0 && images[targetFrame - offset]) {
+          targetFrame = targetFrame - offset;
+          found = true;
+          break;
+        }
+        if (targetFrame + offset < FRAME_COUNT && images[targetFrame + offset]) {
+          targetFrame = targetFrame + offset;
+          found = true;
+          break;
+        }
+        offset++;
+      }
+      if (!found) return; // Nothing loaded at all
+    }
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    const img = images[frameIndex];
+    const img = images[targetFrame];
 
     // Dropped devicePixelRatio to significantly boost rendering performance
     // High DPI scaling on 60fps canvas draws causes massive GPU fill-rate lag
@@ -109,6 +81,106 @@ export default function ProductScroll() {
     // ctx.imageSmoothingEnabled = true; // Use default smoothing
     ctx.drawImage(img, x, y, drawWidth, drawHeight);
   };
+
+  // Preload images
+  useEffect(() => {
+    let isCancelled = false;
+    let priorityLoadedCount = 0;
+
+    const loadImages = async () => {
+      // 1. Priority loading: Every 8th frame
+      const priorityFrames = [];
+      const priorityStep = 8;
+      for (let i = 0; i < FRAME_COUNT; i += priorityStep) {
+        priorityFrames.push(i);
+      }
+      if (!priorityFrames.includes(FRAME_COUNT - 1)) {
+        priorityFrames.push(FRAME_COUNT - 1);
+      }
+
+      const loadFrame = (index, isPriority = false) => {
+        return new Promise((resolve) => {
+          if (imagesRef.current[index]) return resolve(); // Already loaded
+          
+          const img = new Image();
+          img.src = currentFrame(index);
+          
+          img.onload = async () => {
+            if (img.decode) {
+              try { await img.decode(); } catch (e) {}
+            }
+            if (isCancelled) return resolve();
+            imagesRef.current[index] = img;
+            
+            if (isPriority) {
+              priorityLoadedCount++;
+              setLoadingProgress(Math.floor((priorityLoadedCount / priorityFrames.length) * 100));
+            }
+            resolve();
+          };
+          img.onerror = () => {
+            if (isCancelled) return resolve();
+            if (isPriority) {
+              priorityLoadedCount++;
+              setLoadingProgress(Math.floor((priorityLoadedCount / priorityFrames.length) * 100));
+            }
+            resolve();
+          };
+        });
+      };
+
+      // Load priority frames concurrently
+      await Promise.all(priorityFrames.map(idx => loadFrame(idx, true)));
+      
+      if (isCancelled) return;
+      
+      setLoaded(true);
+
+      // Pre-render frame 0 once priority loading is complete
+      if (canvasRef.current && imagesRef.current[0]) {
+        setTimeout(() => {
+          if (!isCancelled) drawFrame(0);
+        }, 50);
+      }
+
+      // 2. Background loading: the rest of the frames
+      const batchSize = 8;
+      for (let i = 0; i < FRAME_COUNT; i += batchSize) {
+        if (isCancelled) break;
+        
+        const batchPromises = [];
+        for (let j = i; j < i + batchSize && j < FRAME_COUNT; j++) {
+           if (!priorityFrames.includes(j)) {
+              batchPromises.push(loadFrame(j, false));
+           }
+        }
+        
+        if (batchPromises.length > 0) {
+           await Promise.all(batchPromises);
+           if (isCancelled) return;
+           
+           // Optionally draw currently scrolled frame to clear up blurry fallback
+           const latest = scrollYProgress.get();
+           const holdScroll = 0.05;
+           let progress = 0;
+           if (latest > holdScroll) {
+             progress = (latest - holdScroll) / (1 - holdScroll);
+           }
+           const frameIndex = Math.min(
+             FRAME_COUNT - 1,
+             Math.floor(progress * FRAME_COUNT)
+           );
+           requestAnimationFrame(() => drawFrame(frameIndex));
+        }
+      }
+    };
+
+    loadImages();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!loaded || !canvasRef.current) return;
@@ -141,7 +213,7 @@ export default function ProductScroll() {
       unsubscribe();
       if (rAF !== null) cancelAnimationFrame(rAF);
     };
-  }, [loaded, images, scrollYProgress]);
+  }, [loaded, scrollYProgress]);
 
   // Overlay opacity values based on scroll
   const opacity0 = useTransform(scrollYProgress, [0, 0.05, 0.15, 0.2], [0, 1, 1, 0]);
@@ -187,7 +259,7 @@ export default function ProductScroll() {
       window.removeEventListener('resize', handleResize);
       clearTimeout(debounceTimer);
     };
-  }, [loaded, images, scrollYProgress]);
+  }, [loaded, scrollYProgress]);
 
   return (
     <section ref={containerRef} className="relative h-[400vh] bg-base">
