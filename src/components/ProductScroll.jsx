@@ -88,17 +88,9 @@ export default function ProductScroll() {
     let priorityLoadedCount = 0;
 
     const loadImages = async () => {
-      // 1. Priority loading: Every 8th frame
-      const priorityFrames = [];
-      const priorityStep = 8;
-      for (let i = 0; i < FRAME_COUNT; i += priorityStep) {
-        priorityFrames.push(i);
-      }
-      if (!priorityFrames.includes(FRAME_COUNT - 1)) {
-        priorityFrames.push(FRAME_COUNT - 1);
-      }
+      let loadedCount = 0;
 
-      const loadFrame = (index, isPriority = false) => {
+      const loadFrame = (index) => {
         return new Promise((resolve) => {
           if (imagesRef.current[index]) return resolve(); // Already loaded
           
@@ -112,65 +104,88 @@ export default function ProductScroll() {
             if (isCancelled) return resolve();
             imagesRef.current[index] = img;
             
-            if (isPriority) {
-              priorityLoadedCount++;
-              setLoadingProgress(Math.floor((priorityLoadedCount / priorityFrames.length) * 100));
-            }
+            loadedCount++;
+            setLoadingProgress(Math.floor((loadedCount / FRAME_COUNT) * 100));
             resolve();
           };
           img.onerror = () => {
             if (isCancelled) return resolve();
-            if (isPriority) {
-              priorityLoadedCount++;
-              setLoadingProgress(Math.floor((priorityLoadedCount / priorityFrames.length) * 100));
-            }
+            loadedCount++;
+            setLoadingProgress(Math.floor((loadedCount / FRAME_COUNT) * 100));
             resolve();
           };
         });
       };
 
-      // Load priority frames concurrently
-      await Promise.all(priorityFrames.map(idx => loadFrame(idx, true)));
+      // 1. Load ONLY the first frame initially to unblock the UI instantly
+      await loadFrame(0);
       
       if (isCancelled) return;
       
       setLoaded(true);
 
-      // Pre-render frame 0 once priority loading is complete
+      // Pre-render frame 0 immediately
       if (canvasRef.current && imagesRef.current[0]) {
         setTimeout(() => {
           if (!isCancelled) drawFrame(0);
         }, 50);
       }
 
-      // 2. Background loading: the rest of the frames
-      const batchSize = 8;
-      for (let i = 0; i < FRAME_COUNT; i += batchSize) {
+      // 2. Load a skeleton of key frames (every 10th frame) to provide a smooth fallback quickly
+      const keyFrames = [];
+      for (let i = 10; i < FRAME_COUNT; i += 10) {
+        keyFrames.push(i);
+      }
+      if (!keyFrames.includes(FRAME_COUNT - 1)) {
+        keyFrames.push(FRAME_COUNT - 1);
+      }
+      
+      // Load key frames in small batches
+      const batchSize = 6;
+      for (let i = 0; i < keyFrames.length; i += batchSize) {
+         if (isCancelled) break;
+         const batchPromises = [];
+         for (let j = i; j < i + batchSize && j < keyFrames.length; j++) {
+             batchPromises.push(loadFrame(keyFrames[j]));
+         }
+         await Promise.all(batchPromises);
+         
+         if (isCancelled) return;
+         // Refresh canvas to use newly loaded closest frames
+         const latest = scrollYProgress.get();
+         const holdScroll = 0.05;
+         let progress = 0;
+         if (latest > holdScroll) {
+           progress = (latest - holdScroll) / (1 - holdScroll);
+         }
+         const frameIndex = Math.min(
+           FRAME_COUNT - 1,
+           Math.floor(progress * FRAME_COUNT)
+         );
+         requestAnimationFrame(() => drawFrame(frameIndex));
+      }
+
+      // 3. Background loading: the rest of the frames for fully fluid 60fps scrolling
+      for (let i = 1; i < FRAME_COUNT; i++) {
         if (isCancelled) break;
-        
-        const batchPromises = [];
-        for (let j = i; j < i + batchSize && j < FRAME_COUNT; j++) {
-           if (!priorityFrames.includes(j)) {
-              batchPromises.push(loadFrame(j, false));
-           }
-        }
-        
-        if (batchPromises.length > 0) {
-           await Promise.all(batchPromises);
-           if (isCancelled) return;
-           
-           // Optionally draw currently scrolled frame to clear up blurry fallback
-           const latest = scrollYProgress.get();
-           const holdScroll = 0.05;
-           let progress = 0;
-           if (latest > holdScroll) {
-             progress = (latest - holdScroll) / (1 - holdScroll);
-           }
-           const frameIndex = Math.min(
-             FRAME_COUNT - 1,
-             Math.floor(progress * FRAME_COUNT)
-           );
-           requestAnimationFrame(() => drawFrame(frameIndex));
+        if (!imagesRef.current[i]) {
+            // Load sequentially in the background
+            await loadFrame(i);
+            
+            // Periodically refresh current canvas if user rests on a not-yet-loaded exact frame
+            if (i % 5 === 0) {
+               const latest = scrollYProgress.get();
+               const holdScroll = 0.05;
+               let progress = 0;
+               if (latest > holdScroll) {
+                 progress = (latest - holdScroll) / (1 - holdScroll);
+               }
+               const frameIndex = Math.min(
+                 FRAME_COUNT - 1,
+                 Math.floor(progress * FRAME_COUNT)
+               );
+               requestAnimationFrame(() => drawFrame(frameIndex));
+            }
         }
       }
     };
