@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 
-const FRAME_COUNT = 242;
+const FRAME_COUNT = 241;
 
 function currentFrame(index) {
   if (index === 0 || index === FRAME_COUNT - 1) {
-    return `/sequence-images/ezgif-frame-000.jpg`;
+    return `/compressed/ezgif-frame-000.webp`;
   }
   const paddedIndex = index.toString().padStart(3, '0');
-  return `/sequence-images/ezgif-frame-${paddedIndex}.jpg`;
+  return `/compressed/ezgif-frame-${paddedIndex}.webp`;
 }
 
 export default function ProductScroll() {
