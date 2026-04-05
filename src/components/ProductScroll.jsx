@@ -28,30 +28,39 @@ export default function ProductScroll() {
   useEffect(() => {
     let isCancelled = false;
     let loadedCount = 0;
-    const imgArray = [];
+    const imgArray = new Array(FRAME_COUNT);
 
     const loadImages = async () => {
+      const promises = [];
       for (let i = 0; i < FRAME_COUNT; i++) {
-        if (isCancelled) break;
-        
-        const img = new Image();
-        img.src = currentFrame(i);
-        
-        await new Promise((resolve) => {
-          img.onload = () => {
-            loadedCount++;
-            setLoadingProgress(Math.floor((loadedCount / FRAME_COUNT) * 100));
-            resolve();
-          };
-          img.onerror = () => {
-            // If image is missing, we try to avoid crashing by resolving anyway
-            loadedCount++; 
-            resolve();
-          };
-        });
-        
-        imgArray.push(img);
+        promises.push(
+          new Promise((resolve) => {
+            const img = new Image();
+            img.src = currentFrame(i);
+            
+            img.onload = async () => {
+              // Force decode image to avoid decode jank on scroll
+              if (img.decode) {
+                try {
+                  await img.decode();
+                } catch (e) {}
+              }
+              if (isCancelled) return resolve();
+              imgArray[i] = img;
+              loadedCount++;
+              setLoadingProgress(Math.floor((loadedCount / FRAME_COUNT) * 100));
+              resolve();
+            };
+            img.onerror = () => {
+              if (isCancelled) return resolve();
+              loadedCount++; 
+              resolve();
+            };
+          })
+        );
       }
+      
+      await Promise.all(promises);
       
       if (!isCancelled) {
         setImages(imgArray);
@@ -74,31 +83,30 @@ export default function ProductScroll() {
     const ctx = canvas.getContext('2d');
     const img = images[frameIndex];
 
-    // Ensure we handle canvas coordinate space and real layout size
-    const targetWidth = canvas.offsetWidth * window.devicePixelRatio;
-    const targetHeight = canvas.offsetHeight * window.devicePixelRatio;
+    // Dropped devicePixelRatio to significantly boost rendering performance
+    // High DPI scaling on 60fps canvas draws causes massive GPU fill-rate lag
+    const targetWidth = canvas.offsetWidth;
+    const targetHeight = canvas.offsetHeight;
     
-    // ONLY set width/height if it actually changed to prevent horrific clear-buffer flicker
     if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
       canvas.width = targetWidth;
       canvas.height = targetHeight;
-      // Scale context to devicePixelRatio for retina displays
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     }
 
-    // Calculate aspect ratio to cover entire screen
     const canvasScale = Math.max(
-      canvas.offsetWidth / img.width, 
-      canvas.offsetHeight / img.height
+      canvas.width / img.width, 
+      canvas.height / img.height
     );
     
     const drawWidth = img.width * canvasScale;
     const drawHeight = img.height * canvasScale;
     
-    const x = (canvas.offsetWidth - drawWidth) / 2;
-    const y = (canvas.offsetHeight - drawHeight) / 2;
+    const x = (canvas.width - drawWidth) / 2;
+    const y = (canvas.height - drawHeight) / 2;
     
-    ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+    // Using simple clearRect
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // ctx.imageSmoothingEnabled = true; // Use default smoothing
     ctx.drawImage(img, x, y, drawWidth, drawHeight);
   };
 
@@ -108,8 +116,12 @@ export default function ProductScroll() {
     // Draw initial frame
     drawFrame(0);
 
+    let rAF = null;
     const unsubscribe = scrollYProgress.on("change", (latest) => {
-      requestAnimationFrame(() => {
+      if (rAF !== null) {
+        cancelAnimationFrame(rAF);
+      }
+      rAF = requestAnimationFrame(() => {
         const holdScroll = 0.05; // Hold for 5% of the scroll sequence (~15vh)
         let progress = 0;
         if (latest > holdScroll) {
@@ -121,10 +133,14 @@ export default function ProductScroll() {
           Math.floor(progress * FRAME_COUNT)
         );
         drawFrame(frameIndex);
+        rAF = null;
       });
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (rAF !== null) cancelAnimationFrame(rAF);
+    };
   }, [loaded, images, scrollYProgress]);
 
   // Overlay opacity values based on scroll
